@@ -1,0 +1,10 @@
+core
+a.out
+
+*~
+*.local
+*.o
+*.so
+*.core
+
+.DS_Store

@@ -2,6 +2,7 @@ core
 a.out
 
 *~
+*.swp
 *.local
 *.o
 *.so

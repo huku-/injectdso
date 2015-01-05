@@ -9,181 +9,47 @@
 #include "symbol.h"
 
 
-
-/* Resolve symbol `symbol_name' in Mach-O file `fp' and return its value in
- * `symbol_value'.
- */
-static int resolve_symbol_macho(FILE *fp, const char *symbol_name,
-        vm_address_t *symbol_value)
-{
-    mach_header_t mh;
-    segment_command_t *segment, segments[MAX_NUM_SEGMENTS];
-    int num_segments, num_sections, segment_map[MAX_NUM_SECTIONS];
-    struct symtab_command symtab;
-
-    nlist_t nl;
-    uint32_t i, j, cmd, cmdsize;
-    char *strtab;
-    int rv = 0;
-
-    long offset = ftell(fp);
-
-    fread(&mh, sizeof(mach_header_t), 1, fp);
-    memset(&symtab, 0, sizeof(struct symtab_command));
-    for(i = 0, num_segments = 0, num_sections = 0; i < mh.ncmds; i++)
-    {
-        fread(&cmd, sizeof(uint32_t), 1, fp);
-        fread(&cmdsize, sizeof(uint32_t), 1, fp);
-        fseek(fp, -2 * sizeof(uint32_t), SEEK_CUR);
-
-        switch(cmd)
-        {
-            case LC_SEGMENT_TYPE:
-                if(num_segments < MAX_NUM_SEGMENTS)
-                {
-                    segment = &segments[num_segments];
-                    fread(segment, sizeof(segment_command_t), 1, fp);
-
-                    for(j = 0; j < segment->nsects &&
-                            num_sections < MAX_NUM_SECTIONS; j++)
-                        /* Map section number to segment number. */
-                        segment_map[num_sections++] = num_segments;
-                    num_segments++;
-                }
-
-                /* Skip section headers following the segment header. */
-                fseek(fp, cmdsize - sizeof(segment_command_t), SEEK_CUR);
-                break;
-
-            case LC_SYMTAB:
-                fread(&symtab, sizeof(struct symtab_command), 1, fp);
-                break;
-
-            default:
-                fseek(fp, cmdsize, SEEK_CUR);
-                break;
-        }
-    }
-
-    /* Make sure we did find a symbol table in the file and its string table
-     * size is non-zero.
-     */
-    if(symtab.cmd != LC_SYMTAB || symtab.strsize == 0)
-    {
-        rv = -EINVAL;
-        goto _exit;
-    }
-
-    if((strtab = malloc(symtab.strsize)) == NULL)
-    {
-        rv = -errno;
-        goto _exit;
-    }
-
-    /* Read string table of symbol names. */
-    fseek(fp, offset + symtab.stroff, SEEK_SET);
-    fread(strtab, sizeof(char), symtab.strsize, fp);
-
-    /* Last byte of a string table should be zero, otherwise we might end up
-     * reading invalid memory in `strcmp()' below.
-     */
-    if(strtab[symtab.strsize - 1] != 0)
-    {
-        free(strtab);
-        rv = -EINVAL;
-        goto _exit;
-    }
-
-    /* Read the symbol table entries. */
-    fseek(fp, offset + symtab.symoff, SEEK_SET);
-    for(i = 0; i < symtab.nsyms; i++)
-    {
-        fread(&nl, sizeof(nlist_t), 1, fp);
-
-        if(nl.n_un.n_strx < symtab.strsize &&
-                strcmp(&strtab[nl.n_un.n_strx], symbol_name) == 0)
-        {
-            *symbol_value = nl.n_value;
-
-            /* For symbol's of type `N_SECT', return the relative offset of the
-             * symbol from the start of the container segment.
-             */
-            if((nl.n_type & N_TYPE) == N_SECT && nl.n_sect - 1 < num_sections)
-                *symbol_value -= segments[segment_map[nl.n_sect - 1]].vmaddr;
-            break;
-        }
-    }
-
-    free(strtab);
-
-    if(i >= symtab.nsyms)
-        rv = -EINVAL;
-
-_exit:
-    return rv;
-}
-
-/* Resolve symbol `symbol_name' in FAT binary `fp' and return its value in
- * `symbol_value'.
- */
-static int resolve_symbol_fat(FILE *fp, const char *symbol_name,
-        vm_address_t *symbol_value)
-{
-    struct fat_header fh;
-    struct fat_arch fa;
-    uint32_t i;
-    long offset;
-    int rv = 0;
-
-
-    fread(&fh, sizeof(struct fat_header), 1, fp);
-    for(i = 0; i < ntohl(fh.nfat_arch); i++)
-    {
-        fread(&fa, sizeof(struct fat_arch), 1, fp);
-        if(htonl(fa.cputype) == CPU_TYPE)
-        {
-            offset = ftell(fp);
-            fseek(fp, htonl(fa.offset), SEEK_SET);
-            if((rv = resolve_symbol_macho(fp, symbol_name, symbol_value)) != 0)
-                break;
-            fseek(fp, offset, SEEK_SET);
-        }
-    }
-    return rv;
-}
-
 /* Resolve symbol `symbol_name' in FAT or Mach-O file `filename' and return its
- * value in `symbol_value'.
+ * value in `symbol_value'. This symbol resolver works for public symbols only.
  */
 int resolve_symbol(const char *filename, const char *symbol_name,
         vm_address_t *symbol_value)
 {
-    FILE *fp;
-    uint32_t magic;
+    Dl_info info;
+    const char *error;
+    void *handle, *value;
     int rv = 0;
 
-    *symbol_value = 0;
 
-    if((fp = fopen(filename, "r")) != NULL)
+    handle = dlopen(filename, RTLD_LAZY);
+    if(handle)
     {
-        fread(&magic, sizeof(uint32_t), 1, fp);
-        fseek(fp, -sizeof(uint32_t), SEEK_CUR);
+        value = dlsym(handle, symbol_name);
+        if(value)
+        {
+            /* Return the relative offset of the symbol from the base address of
+             * the container DSO. We can't assume that the value returned by 
+             * `dlopen()' is the DSO's base address; we have to call `dladdr()'
+             * to determine it.
+             */
+            dladdr(value, &info);
+            *symbol_value = (vm_address_t)(info.dli_saddr - info.dli_fbase);
+        }
 
-        if(magic == FAT_MAGIC || magic == FAT_CIGAM)
-            rv = resolve_symbol_fat(fp, symbol_name, symbol_value);
-        else if(magic == MH_MAGIC_1 || magic == MH_MAGIC_2)
-            rv = resolve_symbol_macho(fp, symbol_name, symbol_value);
-        else
-            rv = -EINVAL;
-        fclose(fp);
+        dlclose(handle);
     }
-    else
+
+    error = dlerror();
+    if(error)
     {
-        perror("fopen");
-        rv = -errno;
+        printf("%s\n", error);
+        /* Does the `dlfcn.h' API set `errno'? */
+        rv = -EFAULT;
     }
+
     return rv;
 }
+
 
 /* Find the base address of DSO or executable `filename' in remote task `task'.
  * The result is returned in `base_address'.

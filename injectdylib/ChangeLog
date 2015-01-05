@@ -1,0 +1,13 @@
+2015-01-05 huku <huku@grhack.net>
+
+    * Modified "Makefile" to produce 64bit executable by default.
+    * Modified symbol resolver code ("symbol.c" and "symbol.h"). We now use
+      `dlopen()' and `dladdr()'; it's more reliable, but works only for public
+      symbols (uppercase letter in `nm' output).
+    * Moved obsolete code in "obsolete/".
+
+
+2014-12-20 huku <huku@grhack.net>
+
+    * First public release of `injectdylib'.
+

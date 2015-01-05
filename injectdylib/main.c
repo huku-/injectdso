@@ -43,7 +43,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
 
     /* Set the address of `pthread_create()' in `stub[]'. */
     if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_c.dylib",
-            "_pthread_create", &address)) != 0)
+            "pthread_create", &address)) != 0)
     {
         printf("Failed to resolve \"_pthread_create\"\n");
         goto _exit;
@@ -53,7 +53,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
 
     /* Set the address of `dlopen()' in `stub[]'. */
     if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libdyld.dylib",
-            "_dlopen", &address)) != 0)
+            "dlopen", &address)) != 0)
     {
         printf("Failed to resolve \"_dlopen\"\n");
         goto _exit;
@@ -63,7 +63,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
 
     /* Set the address of `pthread_exit()' in `stub[]'. */
     if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_c.dylib",
-        "_pthread_exit", &address)) != 0)
+        "pthread_exit", &address)) != 0)
     {
         printf("Failed to resolve \"_pthread_exit\"\n");
         goto _exit;

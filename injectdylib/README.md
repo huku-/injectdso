@@ -1,6 +1,6 @@
 # injectdylib - DSO injection for MacOS X
 
-huku &lt;[huku@grhack.net](@grhack.net)&gt;
+huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
 
 
 ## About

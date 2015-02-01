@@ -1,3 +1,9 @@
+2015-02-01 huku <huku@grhack.net>
+
+    * Updated "NOTES.md".
+    * Fixed typos in "README.md" files.
+
+
 2015-01-05 huku <huku@grhack.net>
 
     * Modified "Makefile" to produce 64bit executable by default.

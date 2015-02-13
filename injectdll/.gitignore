@@ -1,0 +1,10 @@
+*~
+*.swp
+*.local
+*.obj
+*.ilk
+*.pdb
+*.pch
+*.exe
+
+.DS_Store

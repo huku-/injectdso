@@ -1,4 +1,4 @@
-2015-02-13 huku <huku@grhack.net>
+2015-05-20 huku <huku@grhack.net>
 
-    * Add "Makefile.mingw" for MinGW and Dev-Cpp.
+    * Cleanup the mess caused by `_tprintf()', `_T()' etc :(
 

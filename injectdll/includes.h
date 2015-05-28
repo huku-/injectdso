@@ -9,6 +9,8 @@
 #include <Windows.h>
 #include <Psapi.h>
 #include <Shlwapi.h>
+#include <Aclapi.h>
+
 
 /* `_UNICODE' needs to be defined for "tchar.h" only. */
 #define _UNICODE

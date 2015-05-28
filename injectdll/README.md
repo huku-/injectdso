@@ -12,7 +12,7 @@ This tool differs from similar ones of the public domain in the following
 aspects:
 
   * Doesn't assume that system DLLs like **kernel32.dll** have the same base
-  address in all processes
+  address in all processes (however, this can change by using **-s**)
 
   * Waits for the remote thread to exit and return status information
 
@@ -21,6 +21,8 @@ aspects:
   re-injected. Saves valuable time when developing sandbox escapes ;)
 
   * Starts a pipe server so that a remote thread can talk back to **injectdll**
+  (low integrity processes, like sandboxed children for example, are allowed to
+  connect and send data)
 
 **injectdll** was inspired from @tyranids work on IE 11 sandbox escapes.
 
@@ -51,6 +53,13 @@ Generating Code...
         link main.obj pipe.obj /OUT:injectdll.exe /nologo /DEBUG /DYNAMICBASE 
         /NXCOMPAT /PDB:injectdll.pdb  /SAFESEH /WX /MACHINE:X86 
         /DEFAULTLIB:Psapi.lib /DEFAULTLIB:Shlwapi.lib
+```
+
+To build a 64-bit binary, use the following commands instead:
+
+```
+Z:\injectdll>"C:\Program Files\Microsoft Visual Studio 10.0\VC\vcvarsall.bat" amd64
+Z:\injectdll>nmake /F Makefile.amd64
 ```
 
 
@@ -97,6 +106,8 @@ injectdll v0.1 by huku <huku@grhack.net>
   by [@tyranid](https://github.com/tyranid)
 
   * [DLL Injection with CreateRemoteThread](http://stackoverflow.com/questions/22750112/dll-injection-with-createremotethread)
+
+  * [Low integrity to medium/high integrity pipe security descriptor](http://stackoverflow.com/questions/9589141/low-integrity-to-medium-high-integrity-pipe-security-descriptor)
 
 For a description of the injection technique implemented in **injectdll** have
 a look at **NOTES.md**.

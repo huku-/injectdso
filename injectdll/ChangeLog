@@ -1,3 +1,16 @@
+2015-05-20 huku <huku@grhack.net>
+
+    * Modified pipe SACL to include the low integrity label; sandboxed
+      processes can now talk back to `injectdll' via "\\??\\pipe\\injectdll".
+    * Added option "-s" which makes `injectdll' assume "kernel32.dll" is
+      mapped at the same address in all processes.
+    * Modified `GetRemoteDLLHandle()' to check if "injectdll.exe" and the target
+      process have the same bitness. If they don't, weird situations arise.
+    * Various cleanups in "main.c" and "pipe.c".
+    * Removed CRLF line endings.
+    * Added "Makefile.amd64"; builds a 64-bit binary.
+
+
 2015-02-13 huku <huku@grhack.net>
 
     * First public release of `injectdll'.

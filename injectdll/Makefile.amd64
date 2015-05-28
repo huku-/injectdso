@@ -7,7 +7,7 @@ CFLAGS=/nologo /O2 /Wall /wd4054 /wd4055 /wd4255 /wd4668 /wd4710 /wd4711 \
 	/wd4820 /wd4917 /MTd /GS /Zi
 
 LDFLAGS=/nologo /DEBUG /DYNAMICBASE /NXCOMPAT /PDB:$(PDB) \
-	/SAFESEH /WX /MACHINE:X86 /DEFAULTLIB:Psapi.lib /DEFAULTLIB:Shlwapi.lib \
+	/WX /MACHINE:X64 /DEFAULTLIB:Psapi.lib /DEFAULTLIB:Shlwapi.lib \
 	/DEFAULTLIB:Advapi32.lib
 
 $(BIN): $(OBJS)

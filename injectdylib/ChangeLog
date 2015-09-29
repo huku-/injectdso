@@ -1,3 +1,10 @@
+2015-09-29 huku <huku@grhack.net>
+
+    * Added prefix in output messages to make them similar with those produced
+      by `injectdll'.
+    * Updated "LICENSE".
+
+
 2015-02-01 huku <huku@grhack.net>
 
     * Updated "NOTES.md".

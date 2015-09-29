@@ -67,17 +67,17 @@ PID 4921.
 
 ```
 # ./injectdylib /usr/lib/libtidy.dylib 4921
-Will attempt to inject "/usr/lib/libtidy.dylib" in PID 4921
-Resolving symbols on remote task
-Resolved "_pthread_create" at @0x9aa52315
-Resolved "_dlopen" at @0x997b0a4f
-Resolved "_pthread_exit" at @0x9aa5197f
-Allocated memory on remote task at @0x200000
-Creating remote thread #1
-Resuming thread #1 and spawning thread #2
-Waiting 5 seconds for the threads to settle down
-Terminating thread #1
-Done
+[*] Will attempt to inject "/usr/lib/libtidy.dylib" in PID 4921
+[*] Resolving symbols on remote task
+[*] Resolved "_pthread_create" at @0x9aa52315
+[*] Resolved "_dlopen" at @0x997b0a4f
+[*] Resolved "_pthread_exit" at @0x9aa5197f
+[*] Allocated memory on remote task at @0x200000
+[*] Creating remote thread #1
+[*] Resuming thread #1 and spawning thread #2
+[*] Waiting 5 seconds for the threads to settle down
+[*] Terminating thread #1
+[*] Done
 ```
 
 Now switch to the debugger, the output indicates that a new library was loaded.

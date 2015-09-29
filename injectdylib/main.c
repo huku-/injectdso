@@ -39,7 +39,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
     int rv = 0;
 
 
-    printf("Resolving symbols on remote task\n");
+    printf("[*] Resolving symbols on remote task\n");
 
     /* Set the address of `pthread_create()' in `stub[]'. */
     if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_c.dylib",
@@ -48,7 +48,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
         printf("Failed to resolve \"_pthread_create\"\n");
         goto _exit;
     }
-    printf("Resolved \"_pthread_create\" at @0x%lx\n", (uintptr_t)address);
+    printf("[*] Resolved \"_pthread_create\" at @0x%lx\n", (uintptr_t)address);
     *(vm_address_t *)&stub[PTHREAD_CREATE_OFFSET] = address;
 
     /* Set the address of `dlopen()' in `stub[]'. */
@@ -58,7 +58,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
         printf("Failed to resolve \"_dlopen\"\n");
         goto _exit;
     }
-    printf("Resolved \"_dlopen\" at @0x%lx\n", (uintptr_t)address);
+    printf("[*] Resolved \"_dlopen\" at @0x%lx\n", (uintptr_t)address);
     *(vm_address_t *)&stub[DLOPEN_OFFSET] = address;
 
     /* Set the address of `pthread_exit()' in `stub[]'. */
@@ -68,7 +68,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
         printf("Failed to resolve \"_pthread_exit\"\n");
         goto _exit;
     }
-    printf("Resolved \"_pthread_exit\" at @0x%lx\n", (uintptr_t)address);
+    printf("[*] Resolved \"_pthread_exit\" at @0x%lx\n", (uintptr_t)address);
     *(vm_address_t *)&stub[PTHREAD_EXIT_OFFSET] = address;
 
 
@@ -92,7 +92,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
         goto _exit;
     }
 
-    printf("Allocated memory on remote task at @0x%lx\n", (uintptr_t)address);
+    printf("[*] Allocated memory on remote task at @0x%lx\n", (uintptr_t)address);
 
 
     /* Set the address of the string holding the filename of the DSO to load
@@ -111,7 +111,7 @@ static int remote_dlopen(vm_map_t task, const char *filename)
     /* Write modified `stub[]' in remote task's memory. */
     write_memory(task, address, stub, sizeof(stub));
 
-    printf("Creating remote thread #1\n");
+    printf("[*] Creating remote thread #1\n");
 
     /* Create remote thread and set its initial CPU state. */
     if((kr = thread_create(task, &thread)) != KERN_SUCCESS)
@@ -146,13 +146,13 @@ static int remote_dlopen(vm_map_t task, const char *filename)
     /* Resume the thread and wait for 5 seconds until `pthread_create()' is
      * called. After that, kill the thread that called `pthread_create()'.
      */
-    printf("Resuming thread #1 and spawning thread #2\n");
+    printf("[*] Resuming thread #1 and spawning thread #2\n");
     thread_resume(thread);
 
-    printf("Waiting 5 seconds for the threads to settle down\n");
+    printf("[*] Waiting 5 seconds for the threads to settle down\n");
     sleep(5);
 
-    printf("Terminating thread #1\n");
+    printf("[*] Terminating thread #1\n");
     thread_terminate(thread);
 
 _exit:
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
     }
 
     pid = atoi(argv[2]);
-    printf("Will attempt to inject \"%s\" in PID %d\n", argv[1], pid);
+    printf("[*] Will attempt to inject \"%s\" in PID %d\n", argv[1], pid);
 
     if((kr = task_for_pid(mach_task_self(), pid, &task)) != KERN_SUCCESS)
     {
@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 
     rv = remote_dlopen(task, argv[1]);
 
-    printf("Done\n");
+    printf("[*] Done\n");
 
 _exit:
     return rv;

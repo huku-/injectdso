@@ -59,7 +59,7 @@ HMODULE GetRemoteDLLHandle(HANDLE hProcess, LPTSTR szModuleName)
         else
             GetModuleBaseName(hProcess, hModule[i], szRemoteName, MAX_PATH);
 
-        if(StrCmp(szRemoteName, szModuleName) == 0)
+        if(StrCmpI(szRemoteName, szModuleName) == 0)
         {
             ret = hModule[i];
             break;

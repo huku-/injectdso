@@ -42,7 +42,7 @@ int resolve_symbol(const char *filename, const char *symbol_name,
     error = dlerror();
     if(error)
     {
-        printf("%s\n", error);
+        printf("resolve_symbol: failed (%s)\n", error);
         /* Does the `dlfcn.h' API set `errno'? */
         rv = -EFAULT;
     }

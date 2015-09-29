@@ -1,3 +1,9 @@
+2015-09-29 huku <huku@grhack.net>
+
+    * Use `StrCmpI()' instead of `StrCmp()' when comparing DLL names. On
+      Microsoft Windows 8.1 "kernel32.dll" shows up as "KERNEL32.DLL".
+
+
 2015-05-20 huku <huku@grhack.net>
 
     * Modified pipe SACL to include the low integrity label; sandboxed

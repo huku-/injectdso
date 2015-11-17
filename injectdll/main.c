@@ -171,8 +171,9 @@ INT _tmain(INT argc, PTCHAR argv[])
      */
     if(bDontResolve == FALSE)
     {
-        if((lpTargetKernel32Address = (LPVOID)GetRemoteDLLHandle(hRemoteProcess,
-            _T("kernel32.dll"))) == NULL)
+        lpTargetKernel32Address = (LPVOID)GetRemoteDLLHandle(hRemoteProcess,
+            _T("kernel32.dll"));
+        if(lpTargetKernel32Address == NULL)
         {
             _tprintf(_T("[*] Could not locate \"kernel32.dll\" in PID %d\n"),
                 dwRemotePid);
@@ -209,7 +210,7 @@ INT _tmain(INT argc, PTCHAR argv[])
     {
         /* Perform a remote allocation and copy the DLL name in it. */
         lpMem = VirtualAllocEx(hRemoteProcess, NULL, PAGE_SIZE, MEM_COMMIT,
-                PAGE_READWRITE);
+            PAGE_READWRITE);
         if(lpMem == NULL)
         {
             _tprintf(_T("[*] Remote allocation failed (%u)\n"), GetLastError());

@@ -71,9 +71,17 @@ _exit:
 }
 
 
+VOID ShowUsage(PTSTR pszProgramName)
+{
+    _tprintf(_T("%s [-siu] <DLL> <PID>\n\n"), pszProgramName);
+    _tprintf(_T("    -s    Don't resolve kernel32.dll address\n"));
+    _tprintf(_T("    -i    Don't inject DLL\n"));
+    _tprintf(_T("    -u    Don't unload injected DLL\n\n"));
+}
+
+
 INT _tmain(INT argc, PTCHAR argv[])
 {
-    BOOLEAN bAssumeSameBase;
     DWORD dwRemotePid, dwMyPid;
     HANDLE hRemoteProcess, hMyProcess;
     HANDLE hRemoteThread;
@@ -88,29 +96,43 @@ INT _tmain(INT argc, PTCHAR argv[])
     TCHAR szFileName[MAX_PATH + 1];
     PTCHAR lpFileName;
     SIZE_T cbWritten, cbToWrite;
+    INT i;
 
+    BOOLEAN bDontResolve = FALSE, bDontInject = FALSE, bDontUnload = FALSE;
     INT ret = EXIT_FAILURE;
 
 
     _tprintf(_T("\n%s\n\n"), HAX0R_HEADER);
 
-    if(argc == 4 && _tcscmp(argv[1], _T("-s")) == 0)
+
+    for(i = 1; i < argc && argv[i][0] == '-'; i++)
     {
-        bAssumeSameBase = TRUE;
-        lpFileName = argv[2];
-        dwRemotePid = (DWORD)_ttoi(argv[3]);
+        switch(argv[i][1])
+        {
+            case 's':
+                bDontResolve = TRUE;
+                break;
+            case 'i':
+                bDontInject = TRUE;
+                break;
+            case 'u':
+                bDontUnload = TRUE;
+                break;
+            default:
+                ShowUsage(argv[0]);
+                goto _exit;
+        }
     }
-    else if(argc == 3)
+
+    if(i > argc - 2)
     {
-        bAssumeSameBase = FALSE;
-        lpFileName = argv[1];
-        dwRemotePid = (DWORD)_ttoi(argv[2]);
-    }
-    else
-    {
-        _tprintf(_T("Usage: %s [-s] <DLL> <PID>\n"), argv[0]);
+        ShowUsage(argv[0]);
         goto _exit;
     }
+
+    lpFileName = argv[i];
+    dwRemotePid = (DWORD)_ttoi(argv[i + 1]);
+
 
     /* Make sure the DLL we were asked to load is there. */
     GetFullPathName(lpFileName, MAX_PATH, szFileName, NULL);
@@ -132,7 +154,7 @@ INT _tmain(INT argc, PTCHAR argv[])
 
     /* Start the mini pipe server in a new thread. */
     doneEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    hServerThread = startPipeServerThread(doneEvent);
+    hServerThread = StartPipeServerThread(doneEvent);
 
 
     /* Determine load address of "kernel32.dll" in this process. */
@@ -144,25 +166,23 @@ INT _tmain(INT argc, PTCHAR argv[])
 
 
     /* Determine load address of "kernel32.dll" in remote process and resolve
-     * API addresses.
+     * API addresses. If `bDontResolve' was set, assume "kernel32.dll" has the
+     * same base address in the remote task.
      */
-    if(bAssumeSameBase)
+    if(bDontResolve == FALSE)
     {
-        lpTargetKernel32Address = lpMyKernel32Address;
-    }
-    else
-    {
-        lpTargetKernel32Address = (LPVOID)GetRemoteDLLHandle(hRemoteProcess,
-            _T("kernel32.dll"));
-        if(lpTargetKernel32Address == NULL)
+        if((lpTargetKernel32Address = (LPVOID)GetRemoteDLLHandle(hRemoteProcess,
+            _T("kernel32.dll"))) == NULL)
         {
             _tprintf(_T("[*] Could not locate \"kernel32.dll\" in PID %d\n"),
                 dwRemotePid);
             goto _exit;
         }
+        _tprintf(_T("[*] Module \"kernel32.dll\" is mapped at @0x%p in PID %d\n"),
+            lpTargetKernel32Address, dwRemotePid);
     }
-    _tprintf(_T("[*] Module \"kernel32.dll\" is mapped at @0x%p in PID %d\n"),
-        lpTargetKernel32Address, dwRemotePid);
+    else
+        lpTargetKernel32Address = lpMyKernel32Address;
 
     _tprintf(_T("[*] Resolving API addresses\n"));
     lpMyLoadLibraryAddress = (LPVOID)LoadLibrary;
@@ -170,8 +190,8 @@ INT _tmain(INT argc, PTCHAR argv[])
     lpMyFreeLibraryAddress = (LPVOID)FreeLibrary;
     _tprintf(_T("[*] My \"FreeLibrary()\" at @0x%p\n"), lpMyFreeLibraryAddress);
 
-    /* When `bSameBaseAddress' is true, the following computations reduce to 
-     * simple assignments.
+    /* When `bDontResolve' is true, the following computations reduce to simple
+     * assignments.
      */
     _tprintf(_T("[*] Computing remote process API addresses\n"));
     lpTargetLoadLibraryAddress = (PBYTE)lpTargetKernel32Address +
@@ -184,70 +204,77 @@ INT _tmain(INT argc, PTCHAR argv[])
         lpTargetFreeLibraryAddress);
 
 
-    /* Perform a remote allocation and copy the DLL name in it. */
-    lpMem = VirtualAllocEx(hRemoteProcess, NULL, PAGE_SIZE, MEM_COMMIT,
-        PAGE_READWRITE);
-    if(lpMem == NULL)
+    /* If `bDontInject' was set, don't inject the specified DLL. */
+    if(bDontInject == FALSE)
     {
-        _tprintf(_T("[*] Remote allocation failed (%u)\n"), GetLastError());
-        CloseHandle(hRemoteProcess);
-        goto _exit;
-    }
+        /* Perform a remote allocation and copy the DLL name in it. */
+        lpMem = VirtualAllocEx(hRemoteProcess, NULL, PAGE_SIZE, MEM_COMMIT,
+                PAGE_READWRITE);
+        if(lpMem == NULL)
+        {
+            _tprintf(_T("[*] Remote allocation failed (%u)\n"), GetLastError());
+            CloseHandle(hRemoteProcess);
+            goto _exit;
+        }
 
-    _tprintf(_T("[*] Remote allocation at @0x%p\n"), lpMem);
+        _tprintf(_T("[*] Remote allocation at @0x%p\n"), lpMem);
 
-    cbToWrite = (_tcslen(szFileName) + 1) * sizeof(TCHAR);
-    WriteProcessMemory(hRemoteProcess, lpMem, szFileName, cbToWrite,
-        &cbWritten);
-    if(cbWritten != cbToWrite)
-    {
-        _tprintf(_T("[*] Writing process %u memory failed (%u)\n"),
-            dwRemotePid, GetLastError());
+        cbToWrite = (_tcslen(szFileName) + 1) * sizeof(TCHAR);
+        WriteProcessMemory(hRemoteProcess, lpMem, szFileName, cbToWrite,
+            &cbWritten);
+        if(cbWritten != cbToWrite)
+        {
+            _tprintf(_T("[*] Writing process %u memory failed (%u)\n"),
+                dwRemotePid, GetLastError());
+            VirtualFreeEx(hRemoteProcess, lpMem, 0, MEM_RELEASE);
+            CloseHandle(hRemoteProcess);
+            goto _exit;
+        }
+
+        /* We're now ready to inject the DLL. */
+        hRemoteThread = CreateRemoteThread(hRemoteProcess, NULL, PAGE_SIZE,
+            (LPTHREAD_START_ROUTINE)lpTargetLoadLibraryAddress, lpMem, 0, NULL);
+        WaitForSingleObject(hRemoteThread, INFINITE);
+        CloseHandle(hRemoteThread);
+
+        /* Thread finished, free the remote allocation. */
         VirtualFreeEx(hRemoteProcess, lpMem, 0, MEM_RELEASE);
-        CloseHandle(hRemoteProcess);
-        goto _exit;
     }
 
-    /* We're now ready to inject the DLL. */
-    hRemoteThread = CreateRemoteThread(hRemoteProcess, NULL, PAGE_SIZE,
-        (LPTHREAD_START_ROUTINE)lpTargetLoadLibraryAddress, lpMem, 0, NULL);
-    WaitForSingleObject(hRemoteThread, INFINITE);
-    CloseHandle(hRemoteThread);
 
     /* Find out where was the DLL injected. */
-    lpInjectedDllAddress = (LPVOID)GetRemoteDLLHandle(hRemoteProcess,
-        szFileName);
+    lpInjectedDllAddress = (LPVOID)GetRemoteDLLHandle(hRemoteProcess, szFileName);
     if(lpInjectedDllAddress == NULL)
     {
         _tprintf(_T("[*] Injected DLL was not found in process %u\n"),
             dwRemotePid);
-        VirtualFreeEx(hRemoteProcess, lpMem, 0, MEM_RELEASE);
         CloseHandle(hRemoteProcess);
         goto _exit;
     }
     _tprintf(_T("[*] DLL was injected at @0x%p\n"), lpInjectedDllAddress);
 
 
-    Sleep(5000);
-
-
-    /* Now unload the DLL from the remote process. In fact, we reduce the DLL's
-     * reference count until it reaches 0.
-     */
-    _tprintf(_T("[*] Unloading injected DLL\n"));
-    while(ReadProcessMemory(hRemoteProcess, lpInjectedDllAddress,
-            (LPVOID)&cbToWrite, 1, NULL))
+    /* Unload the DLL unless the user has requested not to do so. */
+    if(bDontUnload == FALSE)
     {
-        hRemoteThread = CreateRemoteThread(hRemoteProcess, NULL, PAGE_SIZE,
-            (LPTHREAD_START_ROUTINE)lpTargetFreeLibraryAddress,
-            lpInjectedDllAddress, 0, NULL);
-        WaitForSingleObject(hRemoteThread, INFINITE);
-        CloseHandle(hRemoteThread);
-        Sleep(1000);
+        _tprintf(_T("[*] Unloading injected DLL\n"));
+        Sleep(5000);
+
+        /* Now unload the DLL from the remote process. In fact, we reduce the DLL's
+         * reference count until it reaches 0.
+         */
+        while(ReadProcessMemory(hRemoteProcess, lpInjectedDllAddress,
+                (LPVOID)&cbToWrite, 1, NULL))
+        {
+            hRemoteThread = CreateRemoteThread(hRemoteProcess, NULL, PAGE_SIZE,
+                (LPTHREAD_START_ROUTINE)lpTargetFreeLibraryAddress,
+                lpInjectedDllAddress, 0, NULL);
+            WaitForSingleObject(hRemoteThread, INFINITE);
+            CloseHandle(hRemoteThread);
+            Sleep(1000);
+        }
     }
 
-
-    VirtualFreeEx(hRemoteProcess, lpMem, 0, MEM_RELEASE);
     CloseHandle(hRemoteProcess);
     CloseHandle(hMyProcess);
 

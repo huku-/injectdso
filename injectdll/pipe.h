@@ -5,7 +5,7 @@
 
 #define PIPE_NAME _T("\\\\.\\pipe\\injectdll")
 
-HANDLE startPipeServerThread(LPVOID);
+HANDLE StartPipeServerThread(LPVOID);
 
 #endif /* _PIPE_H_ */
 

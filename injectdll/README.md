@@ -8,7 +8,7 @@ huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
 **injectdll** is a tool, part of **injectdso**, that allows one to inject
 arbitrary **.dll** files in running processes under Microsoft Windows.
 
-This tool differs from similar ones of the public domain in the following 
+This tool differs from similar ones of the public domain in the following
 aspects:
 
   * Doesn't assume that system DLLs like **kernel32.dll** have the same base
@@ -16,8 +16,8 @@ aspects:
 
   * Waits for the remote thread to exit and return status information
 
-  * Unloads the injected DLL from the target process using **FreeLibrary()** 
-  thus also releasing any mandatory locks, so that the DLL can later be 
+  * Unloads the injected DLL from the target process using **FreeLibrary()**
+  thus also releasing any mandatory locks, so that the DLL can later be
   re-injected. Saves valuable time when developing sandbox escapes ;)
 
   * Starts a pipe server so that a remote thread can talk back to **injectdll**
@@ -45,13 +45,13 @@ Z:\injectdll>nmake
 Microsoft (R) Program Maintenance Utility Version 10.00.30319.01
 Copyright (C) Microsoft Corporation.  All rights reserved.
 
-        cl /nologo /O2 /Wall /wd4054 /wd4055 /wd4255 /wd4668 /wd4710 /wd4711 
+        cl /nologo /O2 /Wall /wd4054 /wd4055 /wd4255 /wd4668 /wd4710 /wd4711
         /wd4820 /wd4917 /MTd /GS /Zi /c main.c pipe.c
 main.c
 pipe.c
 Generating Code...
-        link main.obj pipe.obj /OUT:injectdll.exe /nologo /DEBUG /DYNAMICBASE 
-        /NXCOMPAT /PDB:injectdll.pdb  /SAFESEH /WX /MACHINE:X86 
+        link main.obj pipe.obj /OUT:injectdll.exe /nologo /DEBUG /DYNAMICBASE
+        /NXCOMPAT /PDB:injectdll.pdb  /SAFESEH /WX /MACHINE:X86
         /DEFAULTLIB:Psapi.lib /DEFAULTLIB:Shlwapi.lib
 ```
 
@@ -99,15 +99,29 @@ injectdll v0.1 by huku <huku@grhack.net>
 [*] Done
 ```
 
+If you want to just inject a DLL in the remote task without unloading it, use
+the **-u** (don't unload) command line switch.
+
+```
+Z:\injectdll>injectdll.exe -u C:\Windows\system32\cmd.exe 3628
+```
+
+To do the opposite (i.e. unload a DLL already injected in the remote task), use
+the **-i** (don't inject) command line switch.
+
+```
+Z:\injectdll>injectdll.exe -i C:\Windows\system32\cmd.exe 3628
+```
+
 
 ## Useful resources
 
-  * [InjectDLL](https://github.com/tyranid/IE11SandboxEscapes/tree/master/InjectDll) 
+  * [InjectDLL](https://github.com/tyranid/IE11SandboxEscapes/tree/master/InjectDll)
   by [@tyranid](https://github.com/tyranid)
 
   * [DLL Injection with CreateRemoteThread](http://stackoverflow.com/questions/22750112/dll-injection-with-createremotethread)
 
-  * [Low integrity to medium/high integrity pipe security descriptor](http://stackoverflow.com/questions/9589141/low-integrity-to-medium-high-integrity-pipe-security-descriptor)
+  * [Low integrity to medium/high integrity pipe security descriptor](http://stackoverflow.com/questions/9589142/low-integrity-to-medium-high-integrity-pipe-security-descriptor)
 
 For a description of the injection technique implemented in **injectdll** have
 a look at **NOTES.md**.

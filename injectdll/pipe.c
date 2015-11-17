@@ -8,7 +8,7 @@
 
 
 /* Create a DACL that will allow everyone to have full control over our pipe. */
-static VOID buildDACL(PSECURITY_DESCRIPTOR pDescriptor)
+static VOID BuildDACL(PSECURITY_DESCRIPTOR pDescriptor)
 {
     PSID pSid;
     EXPLICIT_ACCESS ea;
@@ -38,7 +38,7 @@ static VOID buildDACL(PSECURITY_DESCRIPTOR pDescriptor)
 
 
 /* Create a SACL that will allow low integrity processes connect to our pipe. */
-static VOID buildSACL(PSECURITY_DESCRIPTOR pDescriptor)
+static VOID BuildSACL(PSECURITY_DESCRIPTOR pDescriptor)
 {
     PSID pSid;
     PACL pAcl;
@@ -65,7 +65,7 @@ static VOID buildSACL(PSECURITY_DESCRIPTOR pDescriptor)
 
 
 /* Initialize security attributes to be used by `CreateNamedPipe()' below. */
-static VOID initSecurityAttributes(PSECURITY_ATTRIBUTES pAttributes)
+static VOID InitSecurityAttributes(PSECURITY_ATTRIBUTES pAttributes)
 {
     PSECURITY_DESCRIPTOR pDescriptor;
 
@@ -73,8 +73,8 @@ static VOID initSecurityAttributes(PSECURITY_ATTRIBUTES pAttributes)
         SECURITY_DESCRIPTOR_MIN_LENGTH);
     InitializeSecurityDescriptor(pDescriptor, SECURITY_DESCRIPTOR_REVISION);
 
-    buildDACL(pDescriptor);
-    buildSACL(pDescriptor);
+    BuildDACL(pDescriptor);
+    BuildSACL(pDescriptor);
 
     pAttributes->nLength = sizeof(SECURITY_ATTRIBUTES);
     pAttributes->lpSecurityDescriptor = pDescriptor;
@@ -83,7 +83,7 @@ static VOID initSecurityAttributes(PSECURITY_ATTRIBUTES pAttributes)
 
 
 /* Fire up the pipe server and wait for connections. */
-DWORD WINAPI startPipeServer(LPVOID lpThreadParameter)
+DWORD WINAPI StartPipeServer(LPVOID lpThreadParameter)
 {
     SECURITY_ATTRIBUTES sa;
     HANDLE hPipe;
@@ -101,7 +101,7 @@ DWORD WINAPI startPipeServer(LPVOID lpThreadParameter)
     _tprintf(_T("[*] Starting server at %s\n"), PIPE_NAME);
 
 
-    initSecurityAttributes(&sa);
+    InitSecurityAttributes(&sa);
 
     hPipe = CreateNamedPipe(PIPE_NAME, PIPE_ACCESS_DUPLEX, dwModeNoWait,
         PIPE_UNLIMITED_INSTANCES, PAGE_SIZE, PAGE_SIZE, INFINITE, &sa);
@@ -155,8 +155,8 @@ _exit:
 /* Create a thread to handle the pipe server. Event `evt' is used to signal the
  * server to stop listening. 
  */
-HANDLE startPipeServerThread(HANDLE evt)
+HANDLE StartPipeServerThread(HANDLE evt)
 {
-    return CreateThread(NULL, PAGE_SIZE, startPipeServer, evt, 0, NULL);
+    return CreateThread(NULL, PAGE_SIZE, StartPipeServer, evt, 0, NULL);
 }
 

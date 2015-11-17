@@ -1,3 +1,12 @@
+2015-11-17 huku <huku@grhack.net>
+
+    * Added command line switches "-i" and "-u".
+    * Changed functions' naming scheme in "pipe.c" and "pipe.h" to be similar
+      with the rest of the code.
+    * Modified compilation flags in "Makefile" and "Makefile.amd64".
+    * Updated "README.md" accordingly.
+
+
 2015-09-29 huku <huku@grhack.net>
 
     * Use `StrCmpI()' instead of `StrCmp()' when comparing DLL names. On

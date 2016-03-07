@@ -62,6 +62,9 @@ Z:\injectdll>"C:\Program Files\Microsoft Visual Studio 10.0\VC\vcvarsall.bat" am
 Z:\injectdll>nmake /F Makefile.amd64
 ```
 
+In newer versions of Visual Studio you might need to replace the **amd64**
+argument with **x86_amd64**.
+
 
 ## Using injectdll
 

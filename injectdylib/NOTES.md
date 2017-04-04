@@ -8,7 +8,7 @@ huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
 ## Injection technique overview
 
 **injectdylib** is very similar to the public DLL injection tools for Microsoft
-Windows. It actually implements the MacOS X equivalent of the standard 
+Windows. It actually implements the MacOS X equivalent of the standard
 **VirtualAllocEx()** + **CreateRemoteThread()** technique. Briefly, it allocates
 memory on a remote task, fills it with the required parameters, initializes a
 stack segment and spawns a new thread that calls **dlopen()**. However, the
@@ -29,10 +29,9 @@ Threads created via the Mach API, like thread #1 above, are **kernel
 threads**; they are not **POSIX** compatible threads like those spawned by
 **pthread_create()**. The main difference is that the first don't have TSD
 (Thread Specific Data) associated with them while the latter do (have a look at
-[libpthread](https://opensource.apple.com/tarballs/libpthread/libpthread-105.1.4.tar.gz)'s
-source code for more information). Practically, thread #1 cannot execute code
-like **dlopen()**, since most useful library calls will segfault trying to
-access TSD data which is not there.
+**libpthread**'s [01] source code for more information). Practically, thread #1
+cannot execute code like **dlopen()**, since most useful library calls will
+segfault trying to access TSD data which is not there.
 
 One option to avoid this problem is to initialize the TSD by hand as expected
 by the **libc** runtime, but this is a lot of work and, most importantly,
@@ -67,7 +66,13 @@ absolute value just like we did in the original symbol resolver; we look up
 the container DSO's text segment address in the remote task and add to it
 the relative offset of the symbol in question.
 
-Last but not least, there's a thing called
-[CoreSymbolication](http://stackoverflow.com/questions/17445960/finding-offsets-of-local-symbols-in-shared-libraries-programmatically-on-os-x).
-It's good, but it's very Apple-ish, so I decided not to use it.
+Last but not least, there's a thing called **CoreSymbolication** [02]. It's good,
+but it's very Apple-ish, so I decided not to use it.
+
+
+## References
+
+[01] <https://opensource.apple.com/tarballs/libpthread/libpthread-105.1.4.tar.gz>
+
+[02] <http://stackoverflow.com/questions/17445960/finding-offsets-of-local-symbols-in-shared-libraries-programmatically-on-os-x>
 

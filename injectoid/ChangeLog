@@ -1,3 +1,9 @@
+2017-06-20 huku <huku@grhack.net>
+
+    * Improve `read_memory()' and `write_memory()' API to solve problem with
+      (probably partially) unmapped memory regions.
+
+
 2017-04-04 huku <huku@grhack.net>
 
     * First public release.

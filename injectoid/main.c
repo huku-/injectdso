@@ -236,33 +236,44 @@ ret:
 
 
 /* Read `size' bytes of data from address `addr' in PID `pid' into `buf'.
- * Returns 0 on success and -1 on failure.
+ * Returns actual number of bytes read on success and -1 on failure.
  */
-static int read_memory(pid_t pid, void *addr, void *buf, size_t size)
+static ssize_t read_memory(pid_t pid, void *addr, void *buf, size_t size)
 {
-    size_t i;
+    size_t i, rem;
     long word;
 
-    int r = -1;
+    ssize_t r = -1;
 
-    for(i = 0; i < size; i += sizeof(word))
+    if(size > SSIZE_MAX)
+        goto ret;
+
+    i = 0;
+    while(i < size)
     {
         errno = 0;
         word = ptrace(PTRACE_PEEKDATA, pid, addr + i, NULL);
 
-        if(errno != 0)
-        {
-            perror("read_memory: ptrace");
-            goto ret;
-        }
+        if(errno)
+            break;
 
-        if(size - i >= sizeof(word))
-            memcpy(buf + i, &word, sizeof(word));
-        else
-            memcpy(buf + i, &word, size - i);
+        rem = size - i < sizeof(word) ? size - i : sizeof(word);
+
+        memcpy(buf + i, &word, rem);
+        i += rem;
     }
 
-    r = 0;
+    /* An error of `EIO' is returned when we have hit an unmapped address. We
+     * don't assume this to be an error, we just return the number of bytes that
+     * were actually read. It's up to the user to check the return value.
+     */
+    if(errno && errno != EIO)
+    {
+        perror("read_memory: ptrace");
+        goto ret;
+    }
+
+    r = (ssize_t)i;
 
 ret:
     return r;
@@ -270,34 +281,47 @@ ret:
 
 
 /* Write contents of `buf' of size `size' at address `addr' in PID `pid'.
- * Returns 0 on success and -1 on failure.
+ * Returns actual number of bytes written on success and -1 on failure.
  */
-static int write_memory(pid_t pid, void *addr, void *buf, size_t size)
+static ssize_t write_memory(pid_t pid, void *addr, void *buf, size_t size)
 {
-    size_t i;
+    size_t i, rem;
     long word;
 
-    int r = -1;
+    ssize_t r = -1;
 
-    for(i = 0; i < size; i += sizeof(word))
+
+    if(size > SSIZE_MAX)
+        goto ret;
+
+    i = 0;
+    while(i < size)
     {
-        if(size - i <= sizeof(word))
-        {
-            if(read_memory(pid, addr + i, &word, sizeof(word)) != 0)
-                goto ret;
-            memcpy(&word, buf + i, size - i);
-        }
-        else
-            memcpy(&word, buf + i, sizeof(word));
+        rem = size - i < sizeof(word) ? size - i : sizeof(word);
 
-        if(ptrace(PTRACE_POKEDATA, pid, addr + i, word) != 0)
-        {
-            perror("write_memory: ptrace");
+        if(rem < sizeof(word) &&
+                read_memory(pid, addr + i, &word, sizeof(word)) != sizeof(word))
             goto ret;
-        }
+
+        memcpy(&word, buf + i, rem);
+
+        errno = 0;
+        ptrace(PTRACE_POKEDATA, pid, addr + i, word);
+
+        if(errno)
+            break;
+
+        i += rem;
     }
 
-    r = 0;
+    /* See comment in `read_memory()' above. */
+    if(errno && errno != EIO)
+    {
+        perror("write_memory: ptrace");
+        goto ret;
+    }
+
+    r = (ssize_t)i;
 
 ret:
     return r;
@@ -383,13 +407,14 @@ ret:
 
 
 /* Force the target to call `dlopen()'. Modify its registers and stack contents
- * and continue exection until a segmentation fault is caught. Return 0 on
+ * and continue execution until a segmentation fault is caught. Return 0 on
  * success and -1 on failure.
  */
 static int force_dlopen(pid_t pid, char *filename)
 {
     void *linker_addr, *dlopen_addr;
     regs_t regs;
+    size_t size;
 
     int r = -1;
 
@@ -423,10 +448,9 @@ static int force_dlopen(pid_t pid, char *filename)
     if(write_registers(pid, &regs) != 0)
         goto ret;
 
-    if(write_memory(pid, (void *)SP(regs) + SP_OFF, filename,
-            strlen(filename) + 1) != 0)
+    size = strlen(filename) + 1;
+    if(write_memory(pid, (void *)SP(regs) + SP_OFF, filename, size) != size)
         goto ret;
-
 
     printf("[*] Waiting for target to throw SIGSEGV or SIGBUS\n");
 
@@ -447,6 +471,7 @@ static int inject(pid_t pid, char *filename)
 {
     regs_t regs;
     char buf[PAGE_SIZE];
+    ssize_t size;
 
     int r = -1;
 
@@ -456,7 +481,7 @@ static int inject(pid_t pid, char *filename)
     if(read_registers(pid, &regs) != 0)
         goto ret;
 
-    if(read_memory(pid, (void *)SP(regs), buf, sizeof(buf)) != 0)
+    if((size = read_memory(pid, (void *)SP(regs), buf, sizeof(buf))) < 0)
         goto ret;
 
     r = 0;
@@ -464,7 +489,7 @@ static int inject(pid_t pid, char *filename)
     if(force_dlopen(pid, filename) != 0)
         r = -1;
 
-    if(write_memory(pid, (void *)SP(regs), buf, sizeof(buf)) != 0)
+    if(write_memory(pid, (void *)SP(regs), buf, size) != size)
         r = -1;
 
     if(write_registers(pid, &regs) != 0)

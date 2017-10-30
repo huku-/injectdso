@@ -1,3 +1,8 @@
+2017-10-30 huku <huku@grhack.net>
+
+    * Make suspending all threads optional (use command line switch "-a").
+
+
 2017-06-20 huku <huku@grhack.net>
 
     * Improve `read_memory()' and `write_memory()' API to solve problem with

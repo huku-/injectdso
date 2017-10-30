@@ -151,15 +151,22 @@ ret:
 }
 
 
-/* Attach to PID `pid' and all of its threads. */
-static int attach(pid_t pid)
+/* Attach to PID `pid' and, if `all_thrs' is true, to all of its threads as well. */
+static int attach(pid_t pid, char all_thrs)
 {
     pid_t *thr_list, tid;
     int status, thr_cnt, i, r = -1;
 
-
-    if(get_thr_list(pid, &thr_list, &thr_cnt) != 0)
-        goto ret;
+    if(all_thrs)
+    {
+        if(get_thr_list(pid, &thr_list, &thr_cnt) != 0)
+            goto ret;
+    }
+    else
+    {
+        thr_list = &pid;
+        thr_cnt = 1;
+    }
 
     for(i = 0; i < thr_cnt; i++)
     {
@@ -193,22 +200,30 @@ detach:
         while(--i >= 0)
             ptrace(PTRACE_DETACH, thr_list[i], NULL, NULL);
 
-    free(thr_list);
+    if(all_thrs)
+        free(thr_list);
 
 ret:
     return r;
 }
 
 
-/* Detach PID `pid' and all of its threads. */
-static int detach(pid_t pid)
+/* Detach PID `pid' and, if `all_thrs' is true, all of its threads as well. */
+static int detach(pid_t pid, char all_thrs)
 {
     pid_t *thr_list, tid;
     int thr_cnt, i, r = -1;
 
-
-    if(get_thr_list(pid, &thr_list, &thr_cnt) != 0)
-        goto ret;
+    if(all_thrs)
+    {
+        if(get_thr_list(pid, &thr_list, &thr_cnt) != 0)
+            goto ret;
+    }
+    else
+    {
+        thr_list = &pid;
+        thr_cnt = 1;
+    }
 
     for(i = 0; i < thr_cnt; i++)
     {
@@ -228,7 +243,8 @@ static int detach(pid_t pid)
     r = 0;
 
 free:
-    free(thr_list);
+    if(all_thrs)
+        free(thr_list);
 
 ret:
     return r;
@@ -467,7 +483,7 @@ ret:
 /* Attach to PID `pid', take a snapshot, modify its state to have it call
  * `dlopen()', restore the previously saved snapshot and detach.
  */
-static int inject(pid_t pid, char *filename)
+static int inject(pid_t pid, char *filename, char all_thrs)
 {
     regs_t regs;
     char buf[PAGE_SIZE];
@@ -475,7 +491,7 @@ static int inject(pid_t pid, char *filename)
 
     int r = -1;
 
-    if(attach(pid) != 0)
+    if(attach(pid, all_thrs) != 0)
         goto ret;
 
     if(read_registers(pid, &regs) != 0)
@@ -495,7 +511,7 @@ static int inject(pid_t pid, char *filename)
     if(write_registers(pid, &regs) != 0)
         r = -1;
 
-    if(detach(pid) != 0)
+    if(detach(pid, all_thrs) != 0)
         r = -1;
 
 ret:
@@ -503,24 +519,51 @@ ret:
 }
 
 
+void usage(void)
+{
+    printf("injectoid [-a] <DSO> <PID>\n");
+    exit(EXIT_FAILURE);
+}
+
+
 int main(int argc, char *argv[])
 {
     pid_t pid;
+    char all_thrs = 0;
+    int ch, r = EXIT_FAILURE;
 
-    int r = EXIT_FAILURE;
-
-    if(argc != 3)
+    while((ch = getopt(argc, argv, "a")) != -1)
     {
-        printf("%s <DSO> <PID>\n", argv[0]);
+        switch(ch)
+        {
+            case 'a':
+                all_thrs = 1;
+                break;
+
+            default:
+                usage();
+                break;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if(argc != 2)
+    {
+        usage();
         goto ret;
     }
 
-    if((pid = atoi(argv[2])) <= 0)
+    if((pid = atoi(argv[1])) <= 0)
         goto ret;
 
-    printf("[*] Injecting %s in PID %d\n", argv[1], pid);
+    if(all_thrs)
+        printf("[*] Suspending all threads and injecting %s in PID %d\n", argv[0], pid);
+    else
+        printf("[*] Injecting %s in PID %d\n", argv[0], pid);
 
-    if(inject(pid, argv[1]) != 0)
+    if(inject(pid, argv[0], all_thrs) != 0)
         goto ret;
 
     printf("[*] Done\n");

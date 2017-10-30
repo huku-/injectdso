@@ -8,11 +8,11 @@ huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
 **injectoid** uses a technique similar to **injectso64** [01], however, it
 differs in the following:
 
-  * **injectoid** will attach to all threads of a multi-threaded process and
-    will stop all threads. One thread will be forced to call `dlopen()` while
-    others are still stalled. I believe this results in a more consistent [02]
-    treatment of applications with several threads (most Android applications
-    are multi-threaded).
+  * **injectoid** will, optionally, attach to all threads of a multi-threaded
+    process and will stop all threads. One thread will be forced to call
+    `dlopen()` while others are still stalled. I believe this results in a more
+    consistent [02] treatment of applications with several threads (most Android
+    applications are multi-threaded).
 
   * **injectoid** uses `PTRACE_GETREGSET` and `PTRACE_SETREGSET` to read and
     write registers respectively, as this seems to be the most portable and,

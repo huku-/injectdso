@@ -10,18 +10,12 @@ arbitrary shared libraries in running processes under Android.
 
 ## Compiling injectoid
 
-  * Make sure **adb** is in your **PATH**.
+Create a standalone cross-compile toolchain for ARM or Aarch64 using the Android
+NDK [01], set **CROSS\_COMPILE** and run **make** as shown below:
 
-  * Plug your smartphone on a USB port. The **Makefile** will pull the linker
-    binaries in order to pre-compute certain function offsets.
-
-  * Create a cross-compile toolchain for ARM or Aarch64 using Android NDK [01].
-
-  * Set **CROSS\_COMPILE** and run **make** as shown below:
-
-    ```
-    CROSS_COMPILE=/tmp/arm/bin/arm-linux-androideabi- make
-    ```
+```
+CROSS_COMPILE=/tmp/arm/bin/arm-linux-androideabi- make
+```
 
 For more information on the injection technique implemented in **injectoid**
 have a look at **NOTES.md**.

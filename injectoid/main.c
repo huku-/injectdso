@@ -16,7 +16,7 @@
 
 #include <linux/elf.h>
 
-#include "offsets.h"
+#include "symbol.h"
 
 
 /* Offset from stack pointer where the filename of the DSO to be injected will
@@ -52,6 +52,10 @@ typedef struct user_regs regs_t;
 #define PC(x)   ((x).uregs[15])
 #define CPSR(x) ((x).uregs[16])
 #endif
+
+
+#define DLOPEN_NAME1 "__dl_dlopen"
+#define DLOPEN_NAME2 "__dl__Z8__dlopenPKciPKv"
 
 
 
@@ -428,12 +432,18 @@ ret:
  */
 static int force_dlopen(pid_t pid, char *filename)
 {
-    void *linker_addr, *dlopen_addr;
+    void *linker_addr, *dlopen_off, *dlopen_addr;
     regs_t regs;
     size_t size;
 
     int r = -1;
 
+    if(resolve_symbol(LINKER_PATH, DLOPEN_NAME1, &dlopen_off) != 0 &&
+            resolve_symbol(LINKER_PATH, DLOPEN_NAME2, &dlopen_off) != 0)
+    {
+        printf("[*] Could not resolve %s or %s\n", DLOPEN_NAME1, DLOPEN_NAME2);
+        goto ret;
+    }
 
     if((linker_addr = get_linker_addr(pid)) == NULL)
     {
@@ -441,7 +451,7 @@ static int force_dlopen(pid_t pid, char *filename)
         goto ret;
     }
 
-    dlopen_addr = linker_addr + DLOPEN_OFF;
+    dlopen_addr = linker_addr + (ptrdiff_t)dlopen_off;
     printf("[*] Resolved dlopen() at %p\n", dlopen_addr);
 
     if(read_registers(pid, &regs) != 0)
@@ -455,7 +465,7 @@ static int force_dlopen(pid_t pid, char *filename)
     PC(regs) = (reg_t)dlopen_addr;
 #elif defined(__arm__)
     LR(regs) = 0xffffffff;
-    PC(regs) = (reg_t)dlopen_addr + 1;
+    PC(regs) = (reg_t)dlopen_addr | 1;
     CPSR(regs) |= 1 << 5;
 #endif
 

@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <linux/elf.h>
 
@@ -34,6 +35,8 @@ typedef struct user_regs_struct regs_t;
 
 #define ARG0(x) ((x).regs[0])
 #define ARG1(x) ((x).regs[1])
+#define ARG2(x) ((x).regs[2])
+#define ARG3(x) ((x).regs[3])
 #define SP(x)   ((x).sp)
 #define LR(x)   ((x).regs[30])
 #define PC(x)   ((x).pc)
@@ -47,6 +50,8 @@ typedef struct user_regs regs_t;
 
 #define ARG0(x) ((x).uregs[0])
 #define ARG1(x) ((x).uregs[1])
+#define ARG2(x) ((x).uregs[2])
+#define ARG3(x) ((x).uregs[3])
 #define SP(x)   ((x).uregs[13])
 #define LR(x)   ((x).uregs[14])
 #define PC(x)   ((x).uregs[15])
@@ -54,9 +59,9 @@ typedef struct user_regs regs_t;
 #endif
 
 
-#define DLOPEN_NAME1 "__dl_dlopen"
-#define DLOPEN_NAME2 "__dl__Z8__dlopenPKciPKv"
-
+#define DLOPEN_NAME1 "__dl__Z9do_dlopenPKciPK17android_dlextinfo"     /* Android 6 */
+#define DLOPEN_NAME2 "__dl__Z9do_dlopenPKciPK17android_dlextinfoPv"   /* Android 7-7.1 */
+#define DLOPEN_NAME3 "__dl__Z9do_dlopenPKciPK17android_dlextinfoPKv"  /* Android 8-9 */
 
 
 /* Get address of linker in debuggee's memory. */
@@ -439,9 +444,10 @@ static int force_dlopen(pid_t pid, char *filename)
     int r = -1;
 
     if(resolve_symbol(LINKER_PATH, DLOPEN_NAME1, &dlopen_off) != 0 &&
-            resolve_symbol(LINKER_PATH, DLOPEN_NAME2, &dlopen_off) != 0)
+            resolve_symbol(LINKER_PATH, DLOPEN_NAME2, &dlopen_off) != 0 &&
+            resolve_symbol(LINKER_PATH, DLOPEN_NAME3, &dlopen_off) != 0)
     {
-        printf("[*] Could not resolve %s or %s\n", DLOPEN_NAME1, DLOPEN_NAME2);
+        printf("[*] Could not resolve dlopen()\n");
         goto ret;
     }
 
@@ -460,6 +466,8 @@ static int force_dlopen(pid_t pid, char *filename)
     /* We also set LR to force the debuggee to crash. */
     ARG0(regs) = SP(regs) + SP_OFF;
     ARG1(regs) = RTLD_NOW | RTLD_GLOBAL;
+    ARG2(regs) = 0;
+    ARG3(regs) = 0;
 #if defined(__aarch64__)
     LR(regs) = 0xffffffffffffffff;
     PC(regs) = (reg_t)dlopen_addr;

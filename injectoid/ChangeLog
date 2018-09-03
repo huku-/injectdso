@@ -1,3 +1,10 @@
+2018-09-03 huku <huku@grhack.net>
+
+    * Include "errno.h" in "main.c" (spotted by aris@census.gr).
+    * Use `do_dlopen()' when injecting DSOs.
+    * Fixed symbol resolver to take into account ELF binaries' load bias.
+
+
 2018-02-14 huku <huku@grhack.net>
 
     * Added symbol resolver (see "symbol.c") and got rid of "offsets.sh".

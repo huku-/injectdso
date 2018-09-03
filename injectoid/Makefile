@@ -13,5 +13,5 @@ all: $(OBJS)
 	$(CC) $(OBJS) -o $(BIN) $(LDFLAGS)
 
 clean:
-	rm -fr $(OBJS) $(BIN) offsets.h
+	rm -fr $(OBJS) $(BIN)
 

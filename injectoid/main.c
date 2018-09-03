@@ -463,11 +463,16 @@ static int force_dlopen(pid_t pid, char *filename)
     if(read_registers(pid, &regs) != 0)
         goto ret;
 
-    /* We also set LR to force the debuggee to crash. */
+    /* Prepare `do_dlopen()' input arguments. On Android >= 7, we set the 4th
+     * argument to a value that emulates `__builtin_return_address()', so that
+     * our DSO is loaded in the correct namespace.
+     */
     ARG0(regs) = SP(regs) + SP_OFF;
     ARG1(regs) = RTLD_NOW | RTLD_GLOBAL;
     ARG2(regs) = 0;
-    ARG3(regs) = 0;
+    ARG3(regs) = PC(regs);
+
+    /* We set the new PC and also set LR to force the debuggee to crash. */
 #if defined(__aarch64__)
     LR(regs) = 0xffffffffffffffff;
     PC(regs) = (reg_t)dlopen_addr;

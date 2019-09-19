@@ -1,3 +1,10 @@
+2019-09-19 huku <huku@grhack.net>
+
+    * Added support for x86 Android emulators.
+    * Fixed compiler warning "-Wtautological-constant-out-of-range-compare" in
+      "symbol.c" on 64-bit architectures
+
+
 2018-09-03 huku <huku@grhack.net>
 
     * Include "errno.h" in "main.c" (spotted by aris@census.gr).

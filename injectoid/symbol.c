@@ -18,7 +18,7 @@ static ssize_t read_strtab(FILE *fp, elf_shdr *shdr, char **datap)
 
     sh_size = shdr->sh_size;
 
-    if(sh_size >= SIZE_MAX)
+    if(sh_size >= UINT_MAX)
     {
         fprintf(stderr, "read_strtab: %s", strerror(EFBIG));
         goto _ret;

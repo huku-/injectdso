@@ -62,7 +62,7 @@ Optionally, use **-a** to have **injectoid** pause all threads of an application
 before modifying the target thread.
 
 ```
-$ ./injectoid -a /data/local/tmp/libtest.so 14313
+$ ./injectoid -a /data/local/tmp/tmpfs/libtest.so 14313
 ```
 
 ## References

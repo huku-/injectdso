@@ -2,8 +2,6 @@
 
 huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
 
-<a href="https://pledgie.com/campaigns/27796"><img alt="" src="https://pledgie.com/campaigns/27796.png?skin_name=chrome" border="0"></a>
-
 
 ## About
 

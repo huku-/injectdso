@@ -25,9 +25,16 @@
  */
 #define SP_OFF 128
 
+
+#ifdef __LP64__
+#define LINKER_PATH "/system/bin/linker64"
+#else
+#define LINKER_PATH "/system/bin/linker"
+#endif
+
+
 /* Architecture specific macros. */
 #if defined(__aarch64__)
-#define LINKER_PATH "/system/bin/linker64"
 
 /* See "arch/arm64/include/uapi/asm/ptrace.h" for more information. */
 typedef uint64_t reg_t;
@@ -42,7 +49,6 @@ typedef struct user_regs_struct regs_t;
 #define PC(x)   ((x).pc)
 
 #elif defined(__arm__)
-#define LINKER_PATH "/system/bin/linker"
 
 /* See "arch/arm/include/uapi/asm/ptrace.h" for more information. */
 typedef uint32_t reg_t;
@@ -56,6 +62,50 @@ typedef struct user_regs regs_t;
 #define LR(x)   ((x).uregs[14])
 #define PC(x)   ((x).uregs[15])
 #define CPSR(x) ((x).uregs[16])
+
+/* See "arch/x86/include/uapi/asm/ptrace.h" for more information. */
+#elif defined(__x86_64__)
+
+typedef unsigned long reg_t;
+typedef struct pt_regs regs_t;
+
+#define ARG0(x) ((x).rdi)
+#define ARG1(x) ((x).rsi)
+#define ARG2(x) ((x).rdx)
+#define ARG3(x) ((x).rcx)
+#define SP(x)   ((x).rsp)
+#define LR(x)   (SP(x))
+#define PC(x)   ((x).rip)
+
+/* See "arch/x86/include/uapi/asm/ptrace.h" for more information. */
+#elif defined(__i386__)
+
+typedef unsigned long reg_t;
+typedef struct pt_regs regs_t;
+
+#define ARG0(x) (SP(x) + 4)
+#define ARG1(x) (SP(x) + 8)
+#define ARG2(x) (SP(x) + 12)
+#define ARG3(x) (SP(x) + 16)
+#define SP(x)   ((x).esp)
+#define LR(x)   (SP(x))
+#define PC(x)   ((x).eip)
+
+#else
+#error Unsupported architecture
+#endif
+
+
+/* Helper macro for Android emulator targets. Writes a register value to an
+ * arbitrary memory location. Used for writing return addresses and arguments
+ * in the debuggee's stack.
+ */
+#if defined(__x86_64__) || defined(__i386__)
+#define WRITE_REG(pid, addr, value) ({ \
+    reg_t _value = value;              \
+    size_t _size = sizeof(reg_t);      \
+    (write_memory((pid), (addr), &_value, _size) != (ssize_t)_size) ? -1 : 0; \
+})
 #endif
 
 
@@ -463,6 +513,7 @@ static int force_dlopen(pid_t pid, char *filename)
     if(read_registers(pid, &regs) != 0)
         goto ret;
 
+#if defined(__aarch64__)
     /* Prepare `do_dlopen()' input arguments. On Android >= 7, we set the 4th
      * argument to a value that emulates `__builtin_return_address()', so that
      * our DSO is loaded in the correct namespace.
@@ -473,13 +524,42 @@ static int force_dlopen(pid_t pid, char *filename)
     ARG3(regs) = PC(regs);
 
     /* We set the new PC and also set LR to force the debuggee to crash. */
-#if defined(__aarch64__)
     LR(regs) = 0xffffffffffffffff;
     PC(regs) = (reg_t)dlopen_addr;
+
 #elif defined(__arm__)
+    ARG0(regs) = SP(regs) + SP_OFF;
+    ARG1(regs) = RTLD_NOW | RTLD_GLOBAL;
+    ARG2(regs) = 0;
+    ARG3(regs) = PC(regs);
     LR(regs) = 0xffffffff;
+
+    /* Force switch to Thumb mode. */
     PC(regs) = (reg_t)dlopen_addr | 1;
     CPSR(regs) |= 1 << 5;
+
+#elif defined(__x86_64__)
+    ARG0(regs) = SP(regs) + SP_OFF;
+    ARG1(regs) = RTLD_NOW | RTLD_GLOBAL;
+    ARG2(regs) = 0;
+    ARG3(regs) = PC(regs);
+
+    if(WRITE_REG(pid, (void *)LR(regs), 0xffffffffffffffff) != 0)
+        goto ret;
+
+    /* XXX: What the fuck #1. */
+    PC(regs) = (reg_t)dlopen_addr + 2;
+
+#elif defined(__i386__)
+    if(WRITE_REG(pid, (void *)ARG0(regs), SP(regs) + SP_OFF) != 0 ||
+            WRITE_REG(pid, (void *)ARG1(regs), RTLD_NOW | RTLD_GLOBAL) != 0 ||
+            WRITE_REG(pid, (void *)ARG2(regs), 0) != 0 ||
+            WRITE_REG(pid, (void *)ARG3(regs), PC(regs)) != 0 ||
+            WRITE_REG(pid, (void *)LR(regs), 0xffffffff) != 0)
+        goto ret;
+
+    /* XXX: What the fuck #2. */
+    PC(regs) = (reg_t)dlopen_addr + 2;
 #endif
 
     printf("[*] Modifying target's state\n");
@@ -488,7 +568,7 @@ static int force_dlopen(pid_t pid, char *filename)
         goto ret;
 
     size = strlen(filename) + 1;
-    if(write_memory(pid, (void *)SP(regs) + SP_OFF, filename, size) != size)
+    if(write_memory(pid, (void *)SP(regs) + SP_OFF, filename, size) != (ssize_t)size)
         goto ret;
 
     printf("[*] Waiting for target to throw SIGSEGV or SIGBUS\n");

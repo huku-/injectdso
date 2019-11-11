@@ -9,6 +9,8 @@
 #include "symbol.h"
 
 
+
+# mark - resolve_symbol() doesn't work yet
 /* Resolve symbol `symbol_name' in FAT or Mach-O file `filename' and return its
  * value in `symbol_value'. This symbol resolver works for public symbols only.
  */
@@ -54,98 +56,56 @@ int resolve_symbol(const char *filename, const char *symbol_name,
 /* Find the base address of DSO or executable `filename' in remote task `task'.
  * The result is returned in `base_address'.
  */
-static int find_base_address(vm_map_t task, const char *filename,
-        vm_address_t *base_address)
-{
-    mach_header_t mh;
-    struct vm_region_submap_info_64 info;
-    struct dyld_all_image_infos daii;
-    struct dyld_image_info dii;
-    mach_msg_type_number_t count;
-    vm_address_t address;
-    vm_size_t size;
-    uint32_t depth, daii_offset, i;
-    char pathname[PATH_MAX];
-    kern_return_t kr;
-    int rv = 0;
+void find_base_address(vm_map_t task, const char *filename, vm_address_t *base_address) {
+	
+	struct task_dyld_info dyld_info;
+	mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
+	if (task_info(task, TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS)
+	{
+		mach_msg_type_number_t size = sizeof(struct dyld_all_image_infos);
+		mach_msg_type_number_t dataCnt = (mach_msg_type_number_t)size;
+		struct dyld_all_image_infos* infos;;
+		mach_vm_read(task, dyld_info.all_image_info_addr, size, (vm_offset_t*)&infos, &dataCnt);
+		
+		
+        mach_msg_type_number_t size2 = sizeof(struct dyld_image_info) * infos->infoArrayCount;
+		mach_msg_type_number_t dataCnt2 = (mach_msg_type_number_t)size2;
+        struct dyld_image_info* info;
+		mach_vm_read(task, (mach_vm_address_t)infos->infoArray, size2, (vm_offset_t*)&info, &dataCnt2);
+		
+        for (int i=0; i < infos->infoArrayCount; i++) {
+            mach_msg_type_number_t size3 = PATH_MAX;
+			mach_msg_type_number_t dataCnt3 = (mach_msg_type_number_t)size3;
 
-    /* Iterate through all mapped regions and locate the base address of the
-     * dynamic loader "/usr/lib/dyld". Theoretically, the following loop should
-     * never fail. Notice that the 64bit API and structures are used for both
-     * x86_64 and i386.
-     */
-    address = 0;
-    size = 0;
-    depth = 0;
-    count = VM_REGION_SUBMAP_INFO_COUNT_64;
-    while((kr = vm_region_recurse_64(task, &address, &size, &depth,
-            (vm_region_info_64_t)&info, &count)) != KERN_INVALID_ADDRESS)
-    {
-        /* Just look for a valid magic number and `MH_DYLINKER'. */
-        memset(&mh, 0, sizeof(mach_header_t));
-        read_memory(task, address, &mh, sizeof(mach_header_t));
-        if((mh.magic == MH_MAGIC_1 || mh.magic == MH_MAGIC_2) &&
-                mh.filetype == MH_DYLINKER)
-            break;
-
-        if(info.is_submap)
-            depth++;
-        else
-            address += size;
-    }
-
-    /* If the user requested the base address of "/usr/lib/dyld", then we're
-     * done.
-     */
-    if(strcmp(filename, "/usr/lib/dyld") == 0)
-    {
-        *base_address = address;
-    }
-    /* Otherwise, iterate through all mapped libraries. */
-    else
-    {
-        /* I discovered the following trick after studying the source code of
-         * "vmmap(1)"; works like charm.
-         */
-        read_memory(task, address + DYLD_ALL_IMAGE_INFOS_OFFSET_OFFSET,
-            &daii_offset, sizeof(uint32_t));
-        read_memory(task, address + daii_offset, &daii,
-            sizeof(struct dyld_all_image_infos));
-        for(i = 0; i < daii.infoArrayCount; i++)
-        {
-            read_memory(task, (vm_address_t)(daii.infoArray + i), &dii,
-                sizeof(struct dyld_image_info));
-            read_memory(task, (vm_address_t)dii.imageFilePath, pathname,
-                sizeof(pathname));
-
-            if(strcmp(pathname, filename) == 0)
-            {
-                *base_address = (vm_address_t)dii.imageLoadAddress;
+			char* path;
+			mach_vm_read(task, (mach_vm_address_t)info[i].imageFilePath, size, (vm_offset_t*)&path, &dataCnt3);
+			
+			if(strcmp(path, filename) == 0) {
+                *base_address = (vm_address_t)info[i].imageLoadAddress;
                 break;
             }
         }
-
-        if(i >= daii.infoArrayCount)
-            rv = -EINVAL;
-    }
-    return rv;
+	}
 }
 
-/* Resolve symbol `symbol_name' from DSO `filename' in remote task `task'. The
- * symbol's value is returned in `symbol_value'.
- */
 int resolve_symbol_runtime(task_t task, const char *filename,
-        const char *symbol_name, vm_address_t *symbol_value)
+        const char *symbol_name, vm_address_t *symbol_addr)
 {
-    vm_address_t address, value;
+    vm_address_t base_address, offset;
     int rv;
 
-    if((rv = find_base_address(task, filename, &address)) == 0)
-    {
-        if((rv = resolve_symbol(filename, symbol_name, &value)) == 0)
-            *symbol_value = value + address;
-    }
-
+	find_base_address(task, filename, &base_address);
+	if(base_address == 0x0 ) {
+		fprintf(stderr, "find_base_address failed: %s\n", symbol_name);
+		return 1;
+	}
+	
+    if((rv = resolve_symbol(filename, symbol_name, &offset)) == 0)
+            *symbol_addr =  base_address + offset;
+	else fprintf(stderr, "resolve_symbol failed: %s\n", symbol_name);
+        
+        //Debug
+	//printf("Sym %s:\n\tBase: %p\n\tOff:  %p\n\t= %p\n",symbol_name, (void*)base_address, (void*)offset, (void*)*symbol_addr);
+	
     return rv;
 }
-

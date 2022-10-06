@@ -11,10 +11,16 @@ arbitrary shared libraries in running processes under Android.
 ## Compiling injectoid
 
 Create a standalone cross-compile toolchain for ARM or Aarch64 using the Android
-NDK [01], set **CROSS\_COMPILE** and run **make** as shown below:
+NDK [01], set **CC** and run **make** as shown below:
 
 ```
-CROSS_COMPILE=/tmp/arm/bin/arm-linux-androideabi- make
+CC=/tmp/arm/bin/arm-linux-androideabi-gcc make
+```
+
+Alternatively, on modern SDKs/NDKs, use the prebuilt toolchain:
+
+```
+CC=/opt/android-sdk/ndk/25.0.8775105/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang make
 ```
 
 For more information on the injection technique implemented in **injectoid**

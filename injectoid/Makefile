@@ -4,7 +4,8 @@ BIN=injectoid
 # D=-DDEBUG -ggdb
 D=-ggdb
 
-CC=$(CROSS_COMPILE)gcc
+# CC=$(CROSS_COMPILE)gcc
+# CC=$(CROSS_COMPILE)clang
 
 CFLAGS=-Wall -O2 $(D) -D_FILE_OFFSET_BITS=64
 LDFLAGS=-pie

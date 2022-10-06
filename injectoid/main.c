@@ -27,9 +27,13 @@
 
 
 #ifdef __LP64__
-#define LINKER_PATH "/system/bin/linker64"
+#define LINKER_PATH      "/system/bin/linker64"
+#define LINKER_PATH_APEX "/apex/com.android.runtime/bin/linker64"
+#define LINKER_PATH_ASAN "/apex/com.android.runtime/bin/linker_asan64"
 #else
-#define LINKER_PATH "/system/bin/linker"
+#define LINKER_PATH      "/system/bin/linker"
+#define LINKER_PATH_APEX "/apex/com.android.runtime/bin/linker"
+#define LINKER_PATH_ASAN "/apex/com.android.runtime/bin/linker_asan"
 #endif
 
 
@@ -114,6 +118,15 @@ typedef struct pt_regs regs_t;
 #define DLOPEN_NAME3 "__dl__Z9do_dlopenPKciPK17android_dlextinfoPKv"  /* Android 8-9 */
 
 
+/* Check if this is one of the linker binaries on the system. */
+static int is_linker(const char *name)
+{
+    return !!(strcmp(name, LINKER_PATH) == 0 ||
+        strcmp(name, LINKER_PATH_APEX) == 0 ||
+        strcmp(name, LINKER_PATH_ASAN) == 0);
+}
+
+
 /* Get address of linker in debuggee's memory. */
 static void *get_linker_addr(pid_t pid)
 {
@@ -141,7 +154,7 @@ static void *get_linker_addr(pid_t pid)
         for(i = 1; i < 6; i++)
             tok[i] = strtok(NULL, " ");
 
-        if(tok[5] && strcmp(tok[5], LINKER_PATH) == 0)
+        if(tok[5] && is_linker(tok[5]))
         {
             r = (void *)strtoul(tok[0], NULL, 16);
             goto close;

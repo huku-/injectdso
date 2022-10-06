@@ -1,3 +1,7 @@
+2022-10-06 huku <huku@grhack.net>
+
+	* Detect all linker binaries (APEX, ASAN and system).
+
 2019-09-19 huku <huku@grhack.net>
 
     * Added support for x86 Android emulators.

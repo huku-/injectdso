@@ -1,8 +1,5 @@
 # injectdso - A collection of tools for injecting DSOs
 
-huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
-
-
 ## About
 
 **injectdso** is a collection of tools for injecting DSOs in processes under
@@ -25,4 +22,3 @@ publicly available tools. For a description of the approach taken by each tool,
 have a look at the corresponding **README.md** and **NOTES.md** files.
 
 For bugs, comments, whatever, feel free to contact me.
-

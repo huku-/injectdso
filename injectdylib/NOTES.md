@@ -2,8 +2,6 @@
 
 Scraps of notes on **injectdylib** development.
 
-huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
-
 
 ## Injection technique overview
 
@@ -75,4 +73,3 @@ but it's very Apple-ish, so I decided not to use it.
 [01] <https://opensource.apple.com/tarballs/libpthread/libpthread-105.1.4.tar.gz>
 
 [02] <http://stackoverflow.com/questions/17445960/finding-offsets-of-local-symbols-in-shared-libraries-programmatically-on-os-x>
-

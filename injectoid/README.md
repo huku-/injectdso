@@ -1,7 +1,5 @@
 # injectoid - DSO injection for Android
 
-huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
-
 ## About
 
 **injectoid** is a tool, part of **injectdso**, that allows one to inject
@@ -82,4 +80,3 @@ $ ./injectoid -a /data/local/tmp/tmpfs/libtest.so 14313
 [04] <http://androidxref.com/8.1.0_r33/xref/bionic/linker/linker.cpp#1231>
 
 [05] <http://androidxref.com/9.0.0_r3/xref/bionic/linker/linker.cpp#1241>
-

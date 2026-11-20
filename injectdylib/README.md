@@ -1,8 +1,5 @@
 # injectdylib - DSO injection for MacOS X
 
-huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
-
-
 ## About
 
 **injectdylib** is a tool, part of **injectdso**, that allows one to inject
@@ -38,19 +35,19 @@ If any warnings are produced, don't hesitate to report them to me.
 Next, create and run a sample 32bit program.
 
 ```
-$ cat test.c 
+$ cat test.c
 #include <stdio.h>
 #include <unistd.h>
 
 int main()
-{ 
+{
     printf("%d\n", getpid());
-    while(1) 
-        sleep(10000); 
+    while(1)
+        sleep(10000);
     return 0;
 }
 $ cc -Wall -m32 test.c -o test
-$ ./test 
+$ ./test
 4921
 ```
 
@@ -62,7 +59,7 @@ Fire up **gdb** and attach to it.
 (gdb) c
 ```
 
-Open up another terminal and use **injectdylib** to load **libtidy.dylib** in 
+Open up another terminal and use **injectdylib** to load **libtidy.dylib** in
 PID 4921.
 
 ```
@@ -87,7 +84,7 @@ Now switch to the debugger, the output indicates that a new library was loaded.
 Reading symbols for shared libraries . done
 ```
 
-To verify that **libtidy.dylib** was loaded, press Ctrl+C and use the command 
+To verify that **libtidy.dylib** was loaded, press Ctrl+C and use the command
 **info shared**.
 
 
@@ -99,4 +96,3 @@ To verify that **libtidy.dylib** was loaded, press Ctrl+C and use the command
 
 For a description of the injection technique implemented in **injectdylib** have
 a look at **NOTES.md**.
-

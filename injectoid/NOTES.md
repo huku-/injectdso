@@ -1,8 +1,5 @@
 # Notes
 
-huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
-
-
 ## Injection technique overview
 
 **injectoid** uses a technique similar to **injectso64** [01], however, it
@@ -30,4 +27,3 @@ and thus 32-bit tasks cannot seek to arbitrary 32-bit addresses. Additionally,
 [01] <https://github.com/ice799/injectso64>
 
 [02] <http://stackoverflow.com/questions/18577956/how-to-use-ptrace-to-get-a-consistent-view-of-multiple-threads>
-

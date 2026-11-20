@@ -1,8 +1,5 @@
 # injectdll - DSO injection for Microsoft Windows
 
-huku &lt;[huku@grhack.net](mailto:huku@grhack.net)&gt;
-
-
 ## About
 
 **injectdll** is a tool, part of **injectdso**, that allows one to inject
@@ -128,4 +125,3 @@ Z:\injectdll>injectdll.exe -i C:\Windows\system32\cmd.exe 3628
 
 For a description of the injection technique implemented in **injectdll** have
 a look at **NOTES.md**.
-

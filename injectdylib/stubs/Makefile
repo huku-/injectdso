@@ -1,14 +1,15 @@
 CFLAGS=-Wall -O0 -c -fPIC
 CC=cc
 
-all: i386_stub.o x86_64_stub.o
+arm64_stub.bin: arm64_stub.S
+	$(CC) $(CFLAGS) $< -o $@
 
-i386_stub.o: i386_stub.S
+i386_stub.bin: i386_stub.S
 	$(CC) $(CFLAGS) -m32 $< -o $@
 
-x86_64_stub.o: x86_64_stub.S
+x86_64_stub.bin: x86_64_stub.S
 	$(CC) $(CFLAGS) -m64 $< -o $@
 
 .PHONY: clean
 clean:
-	rm -fr *.o a.out *.core core *~
+	rm -fr *.bin *.o a.out *.core core *~

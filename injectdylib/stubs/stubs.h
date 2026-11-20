@@ -102,6 +102,63 @@ uint8_t stub[] =
      */
     "\x90"
     "\xeb\xfd";
+#elif defined __arm64__
+    /* _main:
+     *     ldr x0, _pthread_t_address
+     *     mov x1, xzr
+     *     adr x2, _dlopen_stub
+     *     mov x3, xzr
+     *     ldr x16, _pthread_create_address
+     *     blr x16
+     *     b _pause
+     */
+    "\xe0\x01\x00\x58"
+    "\xe1\x03\x1f\xaa"
+    "\xa2\x00\x00\x10"
+    "\xe3\x03\x1f\xaa"
+    "\xb0\x01\x00\x58"
+    "\x00\x02\x3f\xd6"
+    "\x08\x00\x00\x14"
+
+    /* _dlopen_stub:
+     *     ldr x0, _string_address
+     *     mov x1, #0x2
+     *     ldr x16, _dlopen_address
+     *     blr x16
+     *     mov x0, xzr
+     *     ldr x16, _pthread_exit_address
+     *     blr x16
+     */
+    "\x80\x01\x00\x58"
+    "\x41\x00\x80\xd2"
+    "\x90\x01\x00\x58"
+    "\x00\x02\x3f\xd6"
+    "\xe0\x03\x1f\xaa"
+    "\x70\x01\x00\x58"
+    "\x00\x02\x3f\xd6"
+
+    /* _pause:
+     *     b _pause
+     */
+    "\x00\x00\x00\x14"
+
+    /* _pthread_t_address: */
+    "\x41\x41\x41\x41\x41\x41\x41\x41"
+
+    /* _pthread_create_address: */
+    "\x42\x42\x42\x42\x42\x42\x42\x42"
+
+    /* _string_address: */
+    "\x43\x43\x43\x43\x43\x43\x43\x43"
+
+    /* _dlopen_address: */
+    "\x44\x44\x44\x44\x44\x44\x44\x44"
+
+    /* _pthread_exit_address: */
+    "\x45\x45\x45\x45\x45\x45\x45\x45";
+#else
+    "";
+#error Unsupported architecture
 #endif
 
 #if defined __x86_64__
@@ -116,6 +173,14 @@ uint8_t stub[] =
 #define STRING_OFFSET          28
 #define DLOPEN_OFFSET          33
 #define PTHREAD_EXIT_OFFSET    42
+#elif defined __arm64__
+#define PTHREAD_T_OFFSET       60
+#define PTHREAD_CREATE_OFFSET  68
+#define STRING_OFFSET          76
+#define DLOPEN_OFFSET          84
+#define PTHREAD_EXIT_OFFSET    92
+#else
+#error Unsupported architecture
 #endif
 
 #endif /* _STUB_H_ */

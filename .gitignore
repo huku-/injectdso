@@ -1,11 +1,12 @@
-core
 a.out
+core
 
 *~
-*.swp
+*.bin
+*.core
 *.local
 *.o
 *.so
-*.core
+*.swp
 
 .DS_Store

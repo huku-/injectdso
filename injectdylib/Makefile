@@ -1,9 +1,7 @@
 OBJS=memory.o symbol.o main.o
 BIN=injectdylib
-CFLAGS=-Wall -O2 -g
+CFLAGS=-Wall -O2 -pedantic -g
 LDFLAGS=
-# CFLAGS=-Wall -O2 -g -m32
-# LDFLAGS=-m32
 CC=cc
 
 all: $(OBJS)

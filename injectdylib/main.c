@@ -4,7 +4,12 @@
  * main.c - Holds the program entry point and `remote_dlopen()', the function
  * that does all the dirty work.
  */
-#include "includes.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <mach/mach.h>
+
 #include "symbol.h"
 #include "memory.h"
 
@@ -16,78 +21,80 @@
 
 
 /* Force the DSO `filename' to be loaded on the remote task `task'. */
-static int remote_dlopen(vm_map_t task, const char *filename)
+static int remote_dlopen(task_t task, const char *filename)
 {
     thread_act_t thread;
-    vm_address_t address, pthread_t_address, string_address;
+    mach_vm_address_t address, pthread_t_address, string_address;
     vm_size_t size;
     kern_return_t kr;
-
 #ifdef __x86_64__
     x86_thread_state64_t ts;
-
     int flavor = x86_THREAD_STATE64;
     mach_msg_type_number_t state_cnt = x86_THREAD_STATE64_COUNT;
-
 #elif defined __i386__
     x86_thread_state32_t ts;
-
     int flavor = x86_THREAD_STATE32;
     mach_msg_type_number_t state_cnt = x86_THREAD_STATE32_COUNT;
+#elif defined __arm64__
+    arm_thread_state64_t ts;
+    int flavor = ARM_THREAD_STATE64;
+    mach_msg_type_number_t state_cnt = ARM_THREAD_STATE64_COUNT;
+#else
+#error Unsupported architecture
 #endif
-
     int rv = 0;
-
 
     printf("[*] Resolving symbols on remote task\n");
 
     /* Set the address of `pthread_create()' in `stub[]'. */
-    if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_c.dylib",
-            "pthread_create", &address)) != 0)
+    if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_pthread.dylib",
+            "pthread_create_from_mach_thread", &address)) != 0)
     {
-        printf("Failed to resolve \"_pthread_create\"\n");
+        fprintf(stderr, "Failed to resolve \"pthread_create_from_mach_thread\"\n");
         goto _exit;
     }
-    printf("[*] Resolved \"_pthread_create\" at @0x%lx\n", (uintptr_t)address);
-    *(vm_address_t *)&stub[PTHREAD_CREATE_OFFSET] = address;
+    printf("[*] Resolved \"pthread_create_from_mach_thread\" at @0x%lx\n",
+        (uintptr_t)address);
+    *(mach_vm_address_t *)&stub[PTHREAD_CREATE_OFFSET] = address;
 
     /* Set the address of `dlopen()' in `stub[]'. */
     if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libdyld.dylib",
             "dlopen", &address)) != 0)
     {
-        printf("Failed to resolve \"_dlopen\"\n");
+        printf("Failed to resolve \"dlopen\"\n");
         goto _exit;
     }
-    printf("[*] Resolved \"_dlopen\" at @0x%lx\n", (uintptr_t)address);
-    *(vm_address_t *)&stub[DLOPEN_OFFSET] = address;
+    printf("[*] Resolved \"dlopen\" at @0x%lx\n", (uintptr_t)address);
+    *(mach_vm_address_t *)&stub[DLOPEN_OFFSET] = address;
 
     /* Set the address of `pthread_exit()' in `stub[]'. */
-    if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_c.dylib",
+    if((rv = resolve_symbol_runtime(task, "/usr/lib/system/libsystem_pthread.dylib",
         "pthread_exit", &address)) != 0)
     {
-        printf("Failed to resolve \"_pthread_exit\"\n");
+        printf("Failed to resolve \"pthread_exit\"\n");
         goto _exit;
     }
-    printf("[*] Resolved \"_pthread_exit\" at @0x%lx\n", (uintptr_t)address);
-    *(vm_address_t *)&stub[PTHREAD_EXIT_OFFSET] = address;
+    printf("[*] Resolved \"pthread_exit\" at @0x%lx\n", (uintptr_t)address);
+    *(mach_vm_address_t *)&stub[PTHREAD_EXIT_OFFSET] = address;
 
 
     /* Now allocate some memory on the remote task and mark it as readable,
      * writable and executable.
      */
     size = MEGABYTES(1);
-    if((kr = vm_allocate(task, &address, size, 1)) != KERN_SUCCESS)
+    if((kr = mach_vm_allocate(task, &address, size, VM_FLAGS_ANYWHERE)) != KERN_SUCCESS)
     {
-        printf("vm_allocate: failed (%d)\n", kr);
+        printf("mach_vm_allocate: failed (%d)\n", kr);
         rv = -kr;
         goto _exit;
     }
 
-    if((kr = vm_protect(task, address, size, 0,
-            VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE)) != KERN_SUCCESS)
+    /* Make memory R+W due to W^X protections. */
+    if((kr = mach_vm_protect(task, address, size, 0,
+            VM_PROT_READ | VM_PROT_WRITE)) != KERN_SUCCESS)
     {
-        printf("vm_protect: failed (%d)\n", kr);
-        vm_deallocate(task, address, size);
+        printf("mach_vm_protect: failed (%d)\n", kr);
+        mach_vm_deallocate(task, address, size);
         rv = -kr;
         goto _exit;
     }
@@ -98,25 +105,35 @@ static int remote_dlopen(vm_map_t task, const char *filename)
     /* Set the address of the string holding the filename of the DSO to load
      * (i.e. first argument of `dlopen()') in `stub[]'.
      */
-    string_address = ALIGN8(address + sizeof(stub));
+    string_address = ALIGN8(address + size / 2);
     write_memory(task, string_address, (void *)filename, strlen(filename) + 1);
-    *(vm_address_t *)&stub[STRING_OFFSET] = string_address;
+    *(mach_vm_address_t *)&stub[STRING_OFFSET] = string_address;
 
     /* This is where the `pthread_t' value returned by `pthread_create()' will
      * be stored.
      */
     pthread_t_address = ALIGN8(string_address + strlen(filename) + 1);
-    *(vm_address_t *)&stub[PTHREAD_T_OFFSET] = pthread_t_address;
+    *(mach_vm_address_t *)&stub[PTHREAD_T_OFFSET] = pthread_t_address;
 
     /* Write modified `stub[]' in remote task's memory. */
     write_memory(task, address, stub, sizeof(stub));
 
     printf("[*] Creating remote thread #1\n");
 
+    /* Make memory R+X now. */
+    if((kr = mach_vm_protect(task, address, size / 2, 0,
+            VM_PROT_READ | VM_PROT_EXECUTE)) != KERN_SUCCESS)
+    {
+        printf("mach_vm_protect: failed (%d)\n", kr);
+        mach_vm_deallocate(task, address, size);
+        rv = -kr;
+        goto _exit;
+    }
+
     /* Create remote thread and set its initial CPU state. */
     if((kr = thread_create(task, &thread)) != KERN_SUCCESS)
     {
-        vm_deallocate(task, address, size);
+        mach_vm_deallocate(task, address, size);
         printf("thread_create: failed (%d)\n", kr);
         rv = -kr;
         goto _exit;
@@ -131,12 +148,16 @@ static int remote_dlopen(vm_map_t task, const char *filename)
     memset(&ts, 0, sizeof(x86_thread_state32_t));
     ts.__eip = address;
     ts.__esp = address + size - 32;
+#elif defined __arm64__
+    memset(&ts, 0, sizeof(arm_thread_state64_t));
+    ts.__pc = address;
+    ts.__sp = address + size - 32;
 #endif
 
     if((kr = thread_set_state(thread, flavor, (thread_state_t)&ts,
             state_cnt)) != KERN_SUCCESS)
     {
-        vm_deallocate(task, address, size);
+        mach_vm_deallocate(task, address, size);
         thread_terminate(thread);
         printf("thread_set_state: failed (%d)\n", kr);
         rv = -kr;
@@ -159,12 +180,11 @@ _exit:
     return rv;
 }
 
-
 int main(int argc, char *argv[])
 {
     mach_port_t task;
     kern_return_t kr;
-    int pid, rv = 0;
+    int pid, rv = EXIT_FAILURE;
 
     if(argc != 3)
     {
@@ -181,11 +201,13 @@ int main(int argc, char *argv[])
         goto _exit;
     }
 
-    rv = remote_dlopen(task, argv[1]);
+    if(remote_dlopen(task, argv[1]) != 0)
+        goto _exit;
+
+    rv = EXIT_SUCCESS;
 
     printf("[*] Done\n");
 
 _exit:
     return rv;
 }
-

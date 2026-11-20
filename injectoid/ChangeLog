@@ -6,7 +6,7 @@
 
     * Added support for x86 Android emulators.
     * Fixed compiler warning "-Wtautological-constant-out-of-range-compare" in
-      "symbol.c" on 64-bit architectures
+      "symbol.c" on 64-bit architectures.
 
 
 2018-09-03 huku <huku@grhack.net>

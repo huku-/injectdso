@@ -19,6 +19,8 @@
 
 #include "symbol.h"
 
+#define VP(x)  ((void *)(x))
+
 
 /* Offset from stack pointer where the filename of the DSO to be injected will
  * be written to in the target process.
@@ -156,7 +158,7 @@ static void *get_linker_addr(pid_t pid)
 
         if(tok[5] && is_linker(tok[5]))
         {
-            r = (void *)strtoul(tok[0], NULL, 16);
+            r = VP(strtoul(tok[0], NULL, 16));
             goto close;
         }
     }
@@ -557,18 +559,18 @@ static int force_dlopen(pid_t pid, char *filename)
     ARG2(regs) = 0;
     ARG3(regs) = PC(regs);
 
-    if(WRITE_REG(pid, (void *)LR(regs), 0xffffffffffffffff) != 0)
+    if(WRITE_REG(pid, VP(LR(regs)), 0xffffffffffffffff) != 0)
         goto ret;
 
     /* XXX: What the fuck #1. */
     PC(regs) = (reg_t)dlopen_addr + 2;
 
 #elif defined(__i386__)
-    if(WRITE_REG(pid, (void *)ARG0(regs), SP(regs) + SP_OFF) != 0 ||
-            WRITE_REG(pid, (void *)ARG1(regs), RTLD_NOW | RTLD_GLOBAL) != 0 ||
-            WRITE_REG(pid, (void *)ARG2(regs), 0) != 0 ||
-            WRITE_REG(pid, (void *)ARG3(regs), PC(regs)) != 0 ||
-            WRITE_REG(pid, (void *)LR(regs), 0xffffffff) != 0)
+    if(WRITE_REG(pid, VP(ARG0(regs)), SP(regs) + SP_OFF) != 0 ||
+            WRITE_REG(pid, VP(ARG1(regs)), RTLD_NOW | RTLD_GLOBAL) != 0 ||
+            WRITE_REG(pid, VP(ARG2(regs)), 0) != 0 ||
+            WRITE_REG(pid, VP(ARG3(regs)), PC(regs)) != 0 ||
+            WRITE_REG(pid, VP(LR(regs)), 0xffffffff) != 0)
         goto ret;
 
     /* XXX: What the fuck #2. */
@@ -581,7 +583,7 @@ static int force_dlopen(pid_t pid, char *filename)
         goto ret;
 
     size = strlen(filename) + 1;
-    if(write_memory(pid, (void *)SP(regs) + SP_OFF, filename, size) != (ssize_t)size)
+    if(write_memory(pid, VP(SP(regs) + SP_OFF), filename, size) != (ssize_t)size)
         goto ret;
 
     printf("[*] Waiting for target to throw SIGSEGV or SIGBUS\n");
@@ -613,7 +615,7 @@ static int inject(pid_t pid, char *filename, char all_thrs)
     if(read_registers(pid, &regs) != 0)
         goto ret;
 
-    if((size = read_memory(pid, (void *)SP(regs), buf, sizeof(buf))) < 0)
+    if((size = read_memory(pid, VP(SP(regs)), buf, sizeof(buf))) < 0)
         goto ret;
 
     r = 0;
@@ -621,7 +623,7 @@ static int inject(pid_t pid, char *filename, char all_thrs)
     if(force_dlopen(pid, filename) != 0)
         r = -1;
 
-    if(write_memory(pid, (void *)SP(regs), buf, size) != size)
+    if(write_memory(pid, VP(SP(regs)), buf, size) != size)
         r = -1;
 
     if(write_registers(pid, &regs) != 0)
